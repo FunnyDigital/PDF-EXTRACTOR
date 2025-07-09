@@ -10,7 +10,10 @@
     <div class="container py-5">
         <h1 class="mb-4">PDF Data Extractor (Gemini 2.5)</h1>
         <div class="mb-3">
-            <input type="file" id="pdfInput" accept="application/pdf" class="form-control">
+            <input type="file" id="pdfInput" accept="application/pdf" class="form-control" multiple>
+            <div id="dropZone" style="border:2px dashed #aaa; padding:20px; margin-top:10px; text-align:center; background:#f8f9fa;">
+                Drag & drop up to 31 PDFs here
+            </div>
         </div>
         <button id="extractBtn" class="btn btn-primary mb-3">Extract Data</button>
         <button id="downloadBtn" class="btn btn-success mb-3" disabled>Download Excel</button>
@@ -24,32 +27,72 @@
     const GEMINI_API_KEY = 'AIzaSyDc7t-_K2r1VnwejnrGwsSlfqXM3s3OF98';
 
     const pdfInput = document.getElementById('pdfInput');
+    const dropZone = document.getElementById('dropZone');
     const extractBtn = document.getElementById('extractBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const tableContainer = document.getElementById('tableContainer');
     const statusDiv = document.getElementById('status');
     let extractedData = [];
 
+    // Drag-and-drop support
+    dropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropZone.style.background = '#e2e6ea';
+    });
+    dropZone.addEventListener('dragleave', e => {
+        e.preventDefault();
+        dropZone.style.background = '#f8f9fa';
+    });
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.style.background = '#f8f9fa';
+        const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
+        if (files.length > 31) {
+            statusDiv.textContent = 'Please select up to 31 PDFs.';
+            return;
+        }
+        pdfInput.files = createFileList(files);
+    });
+
+    function createFileList(files) {
+        // Helper to create a FileList from array of Files
+        const dt = new DataTransfer();
+        files.forEach(f => dt.items.add(f));
+        return dt.files;
+    }
+
     extractBtn.onclick = async () => {
         statusDiv.textContent = '';
         tableContainer.innerHTML = '';
         downloadBtn.disabled = true;
-        if (!pdfInput.files[0]) {
-            statusDiv.textContent = 'Please select a PDF file.';
+        const files = Array.from(pdfInput.files).filter(f => f.type === 'application/pdf');
+        if (!files.length) {
+            statusDiv.textContent = 'Please select PDF file(s).';
             return;
         }
-        const file = pdfInput.files[0];
+        if (files.length > 31) {
+            statusDiv.textContent = 'Please select up to 31 PDFs.';
+            return;
+        }
         try {
-            statusDiv.textContent = 'Uploading PDF and extracting data...';
-            const formData = new FormData();
-            formData.append('file', file);
-            const response = await fetch('http://localhost:5000/extract', {
-                method: 'POST',
-                body: formData
-            });
-            if (!response.ok) throw new Error('API error: ' + response.statusText);
-            const result = await response.json();
-            extractedData = result.data || [];
+            statusDiv.textContent = 'Uploading PDFs and extracting data...';
+            let allData = [];
+            for (let i = 0; i < files.length; i++) {
+                statusDiv.textContent = `Processing ${i+1} of ${files.length}...`;
+                const formData = new FormData();
+                formData.append('file', files[i]);
+                const response = await fetch('http://localhost:5000/extract', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) throw new Error('API error: ' + response.statusText);
+                const result = await response.json();
+                const data = result.data || [];
+                if (Array.isArray(data) && data.length > 0) {
+                    allData = allData.concat(data);
+                }
+            }
+            extractedData = allData;
             if (!Array.isArray(extractedData) || extractedData.length === 0) {
                 statusDiv.textContent = 'No data extracted.';
                 return;
