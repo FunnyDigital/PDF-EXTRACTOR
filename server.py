@@ -24,9 +24,11 @@ def extract():
     file = request.files['file']
     pdf_text = extract_text_from_pdf(file.stream)
     prompt = (
-        "Extract all tabular data from the following PDF text. "
-        "Return ONLY a valid JSON array of objects, no explanation or extra text. "
-        "If no table is found, return an empty array [].\n" + pdf_text
+        "From the following PDF text, extract ONLY the tabular data with these columns: "
+        "Card Holder Name, Card Number, Date Time, New Credit Limit, Old Credit Limit. "
+        "Ignore any other columns or data. "
+        "Return ONLY a valid JSON array of objects with these exact keys, no explanation or extra text. "
+        "If no such table is found, return an empty array [].\n" + pdf_text
     )
     response = genai.GenerativeModel("gemini-2.0-flash").generate_content(prompt)
     raw_text = response.text

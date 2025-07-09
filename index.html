@@ -92,7 +92,7 @@
                     allData = allData.concat(data);
                 }
             }
-            extractedData = allData;
+            extractedData = filterAndDeduplicate(allData);
             if (!Array.isArray(extractedData) || extractedData.length === 0) {
                 statusDiv.textContent = 'No data extracted.';
                 return;
@@ -134,6 +134,31 @@
             reader.onerror = reject;
             reader.readAsDataURL(file);
         });
+    }
+
+    // Only keep rows with the required keys and ignore header rows
+    function filterAndDeduplicate(data) {
+        const requiredKeys = [
+            "Card Holder Name",
+            "Card Number",
+            "Date Time",
+            "New Credit Limit",
+            "Old Credit Limit"
+        ];
+        // Remove rows that are just headers or missing required fields
+        let filtered = data.filter(row =>
+            requiredKeys.every(k => row.hasOwnProperty(k)) &&
+            !requiredKeys.every(k => (row[k] || '').toLowerCase().includes(k.toLowerCase()))
+        );
+        // Deduplicate rows (optional, based on all fields)
+        const seen = new Set();
+        filtered = filtered.filter(row => {
+            const key = requiredKeys.map(k => row[k]).join('|');
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+        return filtered;
     }
     </script>
 </body>
